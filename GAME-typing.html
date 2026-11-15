@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html>
+    <meta charset="utf-8"/>
+    <title>canvas</title>
+    <style>
+        canvas {
+            background: #eee;
+            display: block;
+            margin: 0 auto;
+        }
+        #game-container {
+            position: relative;
+            width: 600px;
+            height: 400px;
+        }
+        #gameCanvas {
+            display: block;
+        }
+        #logButton {
+            position: absolute;
+            /* Canvasの右上に配置 */
+            top: 12px;
+            right: -585px;
+            padding: 2px 20px;
+            border-radius: 50px;
+            font-size: 50px;
+            font-family: 'serif';
+            cursor: pointer;
+            z-index: 10;
+        }
+    </style>
+<body>
+  <!-- Canvas領域を定義 -->
+  <div id="game-container">
+    <canvas id="myCanvas" width="1200" height="550" style="border:1px solid #000;"></canvas>
+    <button onclick="logButton()" id="logButton">log</button>
+  </div>
+  <script>
+        const enteredLetters = [];
+        const baseWords = [
+        'apple','breeze','candle','dolphin','eagle','forest','globe','horizon',
+        'island','journey','kangaroo','lemon','mountain','ocean','pencil','river',
+        'sunset','tiger','umbrella','violet','window','yellow','zebra','cloud',
+        'flower','garden','hammer','kitten','mirror','planet','rainbow','silver',
+        'tree','monkey','airplane','anchor','balloon','banana','beach','bear','bicycle','bird',
+        'blanket','bridge','butterfly','camera','castle','chair','cheese','circle',
+        'coffee','comet','cookie','crystal','desert','diamond','dragon','dream',
+        'engine','feather','fire','fish','fountain','frog','guitar','hat',
+        'helmet','horse','house','ice','jacket','jungle','key','lamp',
+        'lion','magnet','map','moon','motor','music','notebook','orange',
+        'owl','paint','paper','parrot','pearl','penguin','phone','picture',
+        'pizza','pocket','rabbit','rocket','rose','sand','school','shark',
+        'ship','shoe','snow','soccer','space','spoon','spring','star',
+        'stone','storm','street','summer','table','telephone','train','truck',
+        'valley','village','volcano','water','whale','winter','wood','world'
+        ];
+        const lookWords = [];
+        const canvas = document.getElementById('myCanvas');
+        var ctx = canvas.getContext('2d');
+        let miliTime = 0;
+        var planter={};
+        var g = 1;
+        var words = 0;
+        let milliseconds = 4000;
+        var plantin = null;
+        var timer = null;
+        var c = 4;
+        var scene = 'start';
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        ctx.font="120px serif";
+        ctx.fillStyle='black';
+        ctx.fillText("TYPING",375,180);
+        ctx.font="50px serif";
+        ctx.fillText('Press "Space" To Start',350,470);
+        ctx.fillText('seconds',660,330);
+        ctx.strokeStyle = 'black';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(420,270,230,70);
+
+        function getRandomInt(min, max) {
+            if (!Number.isInteger(min) || !Number.isInteger(max) || min > max) {
+            throw new Error("minとmaxは整数で、min <= maxである必要があります");
+            }
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        };
+
+        function setting() {
+            ctx.clearRect(421,271,228,68);
+            for (var seconds = ''; seconds.length < enteredLetters.length; seconds = seconds+enteredLetters[seconds.length]);
+            let j=ctx.measureText(seconds).width+10;
+            if (j >= 230) {
+                enteredLetters.pop();
+                setting();
+            }
+            else {
+                ctx.font="60px serif";
+                ctx.fillStyle='black';
+                ctx.fillText(seconds,650-j,330);
+                milliseconds = seconds*1000;
+            };   
+        };
+
+        function logButton() {
+            if (scene === 'record') {
+                replay();
+            }else{
+            document.getElementById('logButton').textContent = '✖';
+            const records = JSON.parse(
+                localStorage.getItem('typingRecords') || '[]'
+            );
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = 'black';
+            ctx.font = '80px serif';
+            ctx.fillText('RECORD', 450, 100);
+            ctx.font = '40px serif';
+            if (records.length === 0) {
+                ctx.fillText('No Records', 450, 250);
+            } else {
+                records.forEach((record, index) => {
+                    const score = Math.floor(
+                        record.words / record.milliTime * 1000000
+                    );
+                    ctx.fillText(
+                        `Rank ${index + 1}`,
+                        200, 180 + index * 75
+                    );
+                    ctx.fillText(
+                        `words: ${record.words}`,
+                        360, 180 + index * 75
+                    );
+                    ctx.fillText(
+                        `Time: ${record.milliTime / 1000}s`,
+                        570, 180 + index * 75
+                    );
+                    ctx.fillText(
+                        `Score: ${score}`,
+                        840, 180 + index * 75
+                    );
+                    console.log(score);
+                });
+            }
+            ctx.font = '30px serif';
+            scene = 'record';
+        };};
+
+        function countdown() {
+            ctx.clearRect(0,0,canvas.width,canvas.height);
+            c = c-1;
+            ctx.font="120px serif";
+            ctx.fillStyle='black';
+            if (c === 0) {
+                ctx.fillText('START',450,275);
+                setTimeout(starter,1000);
+                ctx.strokeStyle = 'green';
+                ctx.lineWidth = 3;
+                ctx.beginPath();     // 新しいパスを開始
+                ctx.moveTo(0, 75);  // 開始位置
+                ctx.lineTo(1200,75);// 終了位置
+                ctx.stroke();
+                return;
+            };
+            ctx.fillText(c,600,275);
+            setTimeout(countdown,1000);
+        };
+
+        function eraser(x,y,X,Y,a) {
+            ctx.clearRect(x,y,X,Y);
+            delete planter[a];
+            if (lookWords.includes(a)) {
+                g=g-1
+                lookWords.splice(lookWords.indexOf(a),1);
+            };
+        };
+
+        function planting () {
+            let i = 0;
+            while (i===0) {
+                var n = getRandomInt(0,baseWords.length-1);
+                if(baseWords[n] in planter) {
+                } else {
+                    i = 1;
+                };
+            };
+            plant(n,getRandomInt(50,1000),125+getRandomInt(0,5)*75);
+        };
+
+        function plant(a,x,y) {
+            if (g===20) {
+                scene = 'end';
+                finish('LOSE');
+                return;
+            };
+            ctx.font="60px serif";
+            ctx.fillStyle='black';
+            var pla = planter;
+            var loo = lookWords;
+            var text = [x,  y,  Math.ceil(ctx.measureText(baseWords[a]).actualBoundingBoxLeft + ctx.measureText(baseWords[a]).actualBoundingBoxRight),  Math.ceil(ctx.measureText(baseWords[a]).actualBoundingBoxAscent + ctx.measureText(baseWords[a]).actualBoundingBoxDescent)];
+            for (let i = 0; i < Object.keys(pla).length; i++) {
+                if(1100 < text[0]+text[2]) {
+                    plant(a,getRandomInt(50,1000),125+getRandomInt(0,5)*75)
+                    return; 
+                };
+                if (pla[loo[i]][0]+pla[loo[i]][2] < text[0] || 
+                    text[0]+text[2] < pla[loo[i]][0] ) {
+                } else if (text[1] === pla[loo[i]][1]) {
+                    plant(a,getRandomInt(50,1000),125+getRandomInt(0,5)*75)
+                    return;
+                };
+                if (i === Object.keys(pla).length-1) {
+                    g = g+1;
+                    ctx.fillText(baseWords[a],x,y);
+                    planter[baseWords[a]] = text;
+                    lookWords.push(baseWords[a]);
+                    return;
+                };
+            };
+        };
+
+        function check() {
+            ctx.clearRect(0,0,1000,70);
+            for (var sentence = ''; sentence.length < enteredLetters.length; sentence = sentence+enteredLetters[sentence.length]);
+            if (sentence in planter) {
+                ctx.font="60px serif";
+                ctx.fillStyle='green';
+                ctx.fillText(sentence,planter[sentence][0],planter[sentence][1]);
+                ctx.clearRect(0,0,1000,70);
+                words = words + 1;
+                ctx.clearRect(1050,0,1200,70);
+                ctx.fillText(words,1100,50);
+                enteredLetters.length = 0;
+                if (g === 1) {
+                    g = g-1
+                    scene = 'end';
+                    finish('WIN');
+                    return;
+                };
+                setTimeout(eraser,500,planter[sentence][0]-ctx.measureText(sentence).actualBoundingBoxLeft-7,  planter[sentence][1]-ctx.measureText(sentence).actualBoundingBoxAscent,  planter[sentence][2]+7,  planter[sentence][3]+5,sentence);   
+            } else {
+                ctx.font="60px serif";
+                ctx.fillStyle='black';
+                ctx.fillText(sentence,20,50);
+            };
+        };
+
+        function starter() {
+            enteredLetters.length = 0;
+            timer = setInterval(() => {miliTime=miliTime+10;},10);
+            ctx.clearRect(400,175,800,375);
+            ctx.font="60px serif";
+            ctx.fillStyle='green';
+            ctx.fillText(words,1100,50);
+            ctx.font="60px serif";
+            ctx.fillStyle='black';
+            const l = getRandomInt(0,baseWords.length-1);
+            planter[baseWords[l]] = [getRandomInt(50,1000),125+getRandomInt(0,5)*75,Math.ceil(ctx.measureText(baseWords[l]).actualBoundingBoxLeft + ctx.measureText(baseWords[l]).actualBoundingBoxRight),Math.ceil(ctx.measureText(baseWords[l]).actualBoundingBoxAscent + ctx.measureText(baseWords[l]).actualBoundingBoxDescent)];
+            ctx.fillText(baseWords[l],planter[baseWords[l]][0],planter[baseWords[l]][1]);
+            lookWords.push(baseWords[l]);
+            for (let i = 0; i < 9; i++) {
+                const m = getRandomInt(0,baseWords.length-1);
+                if(baseWords[m] in planter) {
+                    i=i-1;
+                    continue;
+                };
+                plant(m,getRandomInt(50,1000),125+getRandomInt(0,5)*75);
+            };
+            plantin = setInterval(planting,milliseconds);
+        };
+
+        function saveRecord() {
+                // 過去の記録を読み込む
+            const records = JSON.parse(
+                localStorage.getItem('typingRecords') || '[]'
+            );
+            // 今回の記録を追加する
+            records.push({
+                milliseconds: milliseconds,
+                words: words,
+                milliTime: miliTime
+            });
+            // Score が null になる記録を除外する
+            const validRecords = records.filter(record => {
+                const score = record.milliTime > 0
+                    ? Math.floor(record.words / record.milliTime * 1000000)
+                    : null;
+                return score !== null && Number.isFinite(score);
+            });
+            // Score が高い順に並べる
+            validRecords.sort((a, b) => {
+                const scoreA = Math.floor(a.words / a.milliTime * 1000000);
+                const scoreB = Math.floor(b.words / b.milliTime * 1000000);
+                return scoreB - scoreA;
+            });
+            // 上位5件だけ保存する
+            const top5 = validRecords.slice(0, 5);
+            localStorage.setItem('typingRecords', JSON.stringify(top5));
+        };
+        
+        function finish(a) {
+            clearInterval(timer);
+            clearInterval(plantin);
+            if (a === 'WIN') {
+                saveRecord();
+            };
+            ctx.clearRect(0,0,canvas.width,canvas.height);
+            ctx.font="200px serif";
+            ctx.fillStyle='black';
+            ctx.fillText(a,375,180);
+            ctx.font="60px serif";
+            ctx.fillText('Time  '+miliTime/1000+' Seconds',350,270);
+            ctx.fillText('word   '+words+' Words',350,350);
+            ctx.fillText('Score   '+Math.floor(words/miliTime*1000000),350,430);
+            ctx.font="50px serif";
+            ctx.fillText('Press "r" To Replay',370,520);
+        };
+
+        function replay() {
+            document.getElementById('logButton').textContent = 'log';
+            document.getElementById('logButton').style.display = 'block';
+            scene = 'start';
+            planter={};
+            g = 1;
+            words = 0;
+            miliTime = 0;
+            milliseconds = 4000;
+            enteredLetters.length = 0;
+            lookWords.length = 0;
+            ctx.clearRect(0,0,canvas.width,canvas.height);
+            ctx.font="120px serif";
+            ctx.fillStyle='black';
+            ctx.fillText("TYPING",375,180);
+            ctx.font="50px serif";
+            ctx.fillText('Press "Space" To Start',350,470);
+            ctx.fillText('seconds',660,330);
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(420,270,230,70);
+
+        };
+
+        function start() {
+            document.getElementById('logButton').style.display = 'none';
+            scene = 'game';
+            c = 4;
+            countdown();
+        };
+        
+        document.addEventListener('keydown', (e) => {
+            if (scene === 'start') {
+                if (e.key === ' ') {
+                    start();
+                }
+                else if (e.key >= 0 && e.key <= 9) {
+                    enteredLetters.push(e.key);
+                    setting();
+                }
+                else if (e.key === '.' && !enteredLetters.includes('.') && enteredLetters.length >= 1) {
+                    enteredLetters.push(e.key);
+                    setting();
+                }
+                else if (e.key === 'Backspace') {
+                    enteredLetters.pop();
+                    setting();
+                }
+                else if (e.key === 'Backspace') {
+                    enteredLetters.pop();
+                    setting();   
+                };
+            }
+            else if (scene === 'game') {
+                if (e.key === 'Backspace') {
+                    enteredLetters.pop();
+                }
+                else if (e.key.length >= 2) {
+                }
+                else {
+                    enteredLetters.push(e.key);
+                };
+                check();
+                
+            }
+            else if (scene === 'end' && e.key === 'r') {
+                replay();
+
+            };
+        });
+
+</script>
+</body>
+</html>
